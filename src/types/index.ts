@@ -1,47 +1,49 @@
 
 export interface IProduct {
-    id: string;
-    title: string;
-    category: string;
-    description: string;
-    price: number | null;
-    image: string;
+    id?: string;
+    title?: string;
+    category?: string;
+    description?: string;
+    price?: number | null;
+    image?: string;
 };
 
-
-export interface IOrder {
-    payment: string;
-    address: string;
-    email: string;
-    phoneNumber: string;
-}
-
 export interface IProductsData {
-    catalog: IProduct[];
-    total: number;
-    preview: string;
+    catalog?: IProduct[];
+    preview?: string;
     addCatalog(products: IProduct[]):void;
     setPreview(product: IProduct):void;
 }
 
 export interface IBasketData {
-    products: IProduct[];
-    totalSum: number;
-    add(id: string): void;
-    remove(id: string): void;
-    getTotalProducts(): number;
-    setTotalSum(): number;
+    basket: IProduct[];
+    idTotalSum: string[];
+    setProductToBusket(product: IProduct): void;
+    removeProductForBasket(product: IProduct): void;
+    addToIdInTotalSum(product: IProduct): void;
+    removeFromIdTotalSum(product: IProduct): void;
+    getTotal(): IProduct;
+    clearBasket(): void;
 }
 
-
-export interface IOrderErrors {
-    checkPaymentValidation(data: Record<keyof TOrderPayment, string>): string;
-    checkContactsValidation(data: Record<keyof TOrderContacts, string>): string;
-
+export interface IOrder {
+    payment?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+    total?: string | number;   
 }
 
-export type TOrderPayment = Pick<IOrder, 'address' | 'payment'>;
-export type TOrderContacts = Pick<IOrder, 'email' | 'phoneNumber'>;
+export interface IOrderItems extends IOrder {
+    items: string[];
+}
+
+export type FormErrors = Partial<Record<keyof IOrder, string>>;
+
+export interface IOrderResult {
+    id: string;
+}
+
 
 
 

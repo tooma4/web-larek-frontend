@@ -47,23 +47,30 @@ yarn build
 
 ```
 interface IProduct {
-    id: string;
-    title: string;
-    category: string;
-    description: string;
-    price: number | null;
-    image: string;
-  };
+    id?: string;
+    title?: string;
+    category?: string;
+    description?: string;
+    price?: number | null;
+    image?: string;
+};
 ```
 
 Заказ
 
 ```
 interface IOrder {
-    payment: string;
-    address: string;
-    email: string;
-    phoneNumber: string;
+    payment?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+    total?: string | number;   
+}
+```
+
+```
+interface IOrderItems extends IOrder {
+    items: string[];
 }
 ```
 
@@ -71,9 +78,8 @@ interface IOrder {
 
 ```
 interface IProductsData {
-    catalog: IProduct[];
-    total: number;
-    preview: string;
+    catalog?: IProduct[];
+    preview?: string;
     addCatalog(products: IProduct[]):void;
     setPreview(product: IProduct):void;
 }
@@ -83,37 +89,27 @@ interface IProductsData {
 
 ```
 interface IBasketData {
-    products: IProduct[];
-    totalSum: number;
-    add(id: string): void;
-    remove(id: string): void;
-    getTotalProducts(): number;
-    setTotalSum(): number;
+    basket: IProduct[];
+    idTotalSum: string[];
+    setProductToBusket(product: IProduct): void;
+    removeProductForBasket(product: IProduct): void
+    addToIdInTotalSum(product: IProduct): void;
+    removeFromIdTotalSum(product: IProduct): void;
+    getTotal(): IProduct;
+    clearBasket(): void;
+}
+```
+Интерфейс результата заказа
+```
+interface IOrderResult {
+    id: string;
 }
 ```
 
-Интерфейс для модели данных ошибок заказа
+Тип ошибок формы
 ```
-export interface IOrderErrors {
-    checkPaymentValidation(data: Record<keyof TOrderPayment, string>): string;
-    checkContactsValidation(data: Record<keyof TOrderContacts, string>): string;
-
-}
+type FormErrors = Partial<Record<keyof IOrder, string>>;
 ```
-
-Данные покупателя в заказе - способы оплаты
-
-```
-type TOrderPayment = Pick<IOrder, 'address' | 'payment'>;
-```
-
-Данные покупателя в заказе - контакты
-
-```
-type TOrderContacts = Pick<IOrder, 'email' | 'phoneNumber'>;
-```
-
-
 ## Архитектура приложения
 
 Код приложения разделен на слои согласно парадигме MVP: 
@@ -128,6 +124,18 @@ type TOrderContacts = Pick<IOrder, 'email' | 'phoneNumber'>;
 Методы: 
 - `get` - выполняет GET запрос на переданный в параметрах ендпоинт и возвращает промис с объектом, которым ответил сервер
 - `post` - принимает объект с данными, которые будут переданы в JSON в теле запроса, и отправляет эти данные на ендпоинт переданный как параметр при вызове метода. По умолчанию выполняется `POST` запрос, но метод запроса может быть переопределен заданием третьего параметра при вызове.
+
+#### Класс Component
+Представляет собой базовый класс для создания компонентов пользовательского интерфейса в веб-приложениях. Он предоставляет методы для управления элементами DOM, включая изменение их классов, состояния блокировки, текста и изображений. Класс предназначен для использования в качестве основы для более сложных компонентов, которые требуют взаимодействия с элементами страницы.
+Методы: 
+- `toggleClass` - Переключает наличие указанного CSS-класса на элементе.
+- `setDisabled` - Устанавливает состояние блокировки для элемента.
+- `render` - Обновляет состояние компонента на основе переданных данных и возвращает корневой DOM-элемент.
+
+#### Класс Model
+представляет собой базовый класс для создания моделей данных. Он предназначен для управления состоянием данных и предоставления функциональности для их обновления и уведомления об изменениях. Класс предоставляет методы для эмитации событий об изменениях данных и управления состоянием.
+Методы: 
+- `emitChanges` - Эмитирует событие об изменении данных модели. Событие позволяет другим компонентам или частям системы реагировать на изменения в модели.
 
 #### Класс EventEmitter
 Брокер событий позволяет отправлять события и подписываться на события, происходящие в системе. Класс используется в презентере для обработки событий и в слоях приложения для генерации событий.  
@@ -144,35 +152,27 @@ type TOrderContacts = Pick<IOrder, 'email' | 'phoneNumber'>;
 Конструктор класса принимает инстант брокера событий.\
 В полях класса хранятся следующие данные:
 - _catalog: IProduct[] - массив объектов товаров
-- _total: number - общее кол-во товаров
 - _preview: string - id товара, выбранной для просмотра в модальной окне
-- events: IEvents - экземпляр класса `EventEmitter` для инициации событий при изменении данных.
 
 Так же класс предоставляет набор методов для взаимодействия с этими данными.
 - addCatalog(products: IProduct[]):void - добавляет список товаров на страницу
 - setPreview(product: IProduct):void - устанавливает товар для просмотра
-- а так-же сеттеры и геттеры для сохранения и получения данных из полей класса
 
 #### Класс BasketData
 Класс отвечает за хранение и логику работы с корзиной покупателя.\
 Конструктор класса принимает инстант брокера событий\
 В полях класса хранятся следующие данные:
-- _products: IProduct[] - массив товаров покупателя
-- _totalSum: number - общая сумма товаров
-- events: IEvents - экземпляр класса `EventEmitter` для инициации событий при изменении данных.
+- basket: IProduct[] - массив товаров покупателя
+- idTotalSum: string[] - массив товаров по айди
 
 Так же класс предоставляет набор методов для взаимодействия с этими данными.
-- add(id: string): void - добавляет товар в корзину
-- remove(id: string): void - удаляет товар из корзины
-- getTotalProducts(): number - возвращает кол-во товаров
-- setTotalSum(): number - возвращает общую сумму цены товаров
+- setProductToBusket(product: IProduct): void - добавляет товар в корзину
+- removeProductForBasket(product: IProduct): void - удаляет товар из корзины
+- addToIdInTotalSum(product: IProduct): void - добавляет айди в массив товаров по айди
+- removeFromIdTotalSum(product: IProduct): void - удаляет айди из массива товаров по айди
+- getTotal(): IProduct - возвращает общую сумму цены товаров
+- clearBasket(): void - очищает корзину
 
-#### Класс OrderErrors
-Класс отвечает за логику работы с ошибками заказов.
-
-Класс предоставляет набор методов для взаимодействия с этими данными.
-- checkPaymentValidation(data: Record<keyof TOrderPaymentForm, string>): string; - проверка валидации Способа оплаты
-- checkContactsValidation(data: Record<keyof TOrderContactsForm, string>): string - проверка валидации Контактов
 
 ### Классы представления
 Классы представления  отвечают за отображение внутри контейнера, передаваемых в них данные.
