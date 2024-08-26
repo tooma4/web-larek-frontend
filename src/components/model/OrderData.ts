@@ -18,6 +18,10 @@ export class OrderData extends Model<IOrder> {
         this.order.items.push(product.id)
     }
 
+    removeFromOrder(product: Product) {
+        this.order.items = this.order.items.filter(id => id !== product.id);
+      }
+
     clearOrder() {
         this.order.items = [];
     }

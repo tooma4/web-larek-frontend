@@ -7,8 +7,11 @@ export class BasketData extends Model<IBasketData> {
     basket: Product[] = [];
     idTotalSum: string[] = [];
 
-    setProductToBusket(product: Product) {
-        this.basket.push(product)
+    setProductToBasket(product: Product) {
+        if (!this.basketValue.find(item => item.id === product.id)) {
+            this.basket.push(product);
+        }
+        
     }
 
     addToIdInTotalSum(product: Product) {

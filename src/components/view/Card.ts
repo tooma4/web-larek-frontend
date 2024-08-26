@@ -61,23 +61,40 @@ interface ICardPreview {
 
 export class CardPreview extends Card<ICardPreview> {
   protected _text: HTMLElement;
-  protected _button: HTMLElement;
+  button: HTMLButtonElement;
   
   constructor(container: HTMLElement, actions?: ICardEvents) {
     super(container, actions)
-    this._button = container.querySelector(`.card__button`);
+    this.button = container.querySelector(`.card__button`);
     this._text = ensureElement<HTMLElement>(`.card__text`, container);
 
     if (actions?.onClick) {
-      if (this._button) {
+      if (this.button) {
           container.removeEventListener('click', actions.onClick);
-          this._button.addEventListener('click', actions.onClick);
+          this.button.addEventListener('click', actions.onClick);
       } 
     }
   }
 
   set description(value: string) {
     this.setText(this._text, value);
+  }
+
+  updateButton(isInBasket: boolean, onClick: () => void) {
+    if (this.button) {
+      if (isInBasket) {
+        this.button.textContent = 'Удалить из корзины';
+        this.button.removeEventListener('click', onClick);
+        this.button.addEventListener('click', () => {
+          onClick();
+          this.setDisabled(this.button, true);
+        });
+      } else {
+        this.button.textContent = 'Добавить в корзину';
+        this.button.removeEventListener('click', onClick);
+        this.button.addEventListener('click', onClick);
+      }
+    }
   }
 }
 

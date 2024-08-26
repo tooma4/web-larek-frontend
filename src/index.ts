@@ -10,9 +10,26 @@ import { Modal } from './components/view/Modal';
 import { BasketData } from './components/model/BasketData';
 import { Basket } from './components/view/Basket';
 import { OrderData } from './components/model/OrderData';
-import { Order, Сontacts } from './components/view/Order';
+import { Order, Сontacts as Contacts } from './components/view/Order';
 import { IOrder } from './types';
 import { Success } from './components/view/Success';
+
+const Events = {
+  PRODUCTS_CHANGED: 'products:changed',
+  PRODUCT_SELECT: 'product:select',
+  PREVIEW_CHANGED: 'preview:changed',
+  PRODUCT_ADD: 'product:add',
+  BASKET_OPEN: 'basket:open',
+  PRODUCT_REMOVE: 'product:remove',
+  ORDER_OPEN: 'order:open',
+  ORDER_SUBMIT: 'order:submit',
+  CONTACTS_SUBMIT: 'contacts:submit',
+  FORM_ERRORS_ORDER_CHANGE: 'formErrorsOrder:change',
+  FORM_ERRORS_CONTACTS_CHANGE: 'formErrorsContacts:change',
+  PAYMENT_CHANGE: 'payment:change',
+  MODAL_OPEN: 'modal:open',
+  MODAL_CLOSE: 'modal:close'
+}
 
 // Брокер событий
 const emitter = new EventEmitter();
@@ -43,15 +60,19 @@ const page = new Page(document.body, emitter);
 const modal = new Modal(ensureElement<HTMLElement>('#modal-container'), emitter);
 const basketView = new Basket(cloneTemplate<HTMLTemplateElement>(basketTpl), emitter);
 const orderView = new Order(cloneTemplate<HTMLFormElement>(orderTpl), emitter);
-const contactsView = new Сontacts(cloneTemplate<HTMLFormElement>(contactsTpl), emitter);
+const contactsView = new Contacts(cloneTemplate<HTMLFormElement>(contactsTpl), emitter);
 
 
 // Данные карточек — сохраняем в модели
 
-emitter.on('products:changed', () => {
+emitter.on(Events.PRODUCTS_CHANGED, () => {
   page.catalog = productData.catalog.map((product) => {
     const card = new Card(cloneTemplate(cardCatalogTpl), {
-      onClick: () => emitter.emit('product:select', product)
+      onClick: () => {
+        if(true) {
+          emitter.emit(Events.PRODUCT_SELECT, product)
+        }        
+      } 
     });
     
     return card.render({
@@ -65,16 +86,34 @@ emitter.on('products:changed', () => {
 
 // при выборе карточки — передаем данные для превью
 
-emitter.on('product:select', (product: Product) => {
+emitter.on(Events.PRODUCT_SELECT, (product: Product) => {
   productData.setPreview(product);
 })
 
 // Отобразить данные превью
 
-emitter.on('preview:changed', (product: Product) => {
+emitter.on(Events.PREVIEW_CHANGED, (product: Product) => {
+  const isInBasket = basketData.basketValue.some(item => item.id === product.id);
+
   const card = new CardPreview(cloneTemplate(cardPreviewTpl), {
-    onClick: () => emitter.emit('product:add', product)
-  });
+    onClick: () => {
+      if (isInBasket) {
+        emitter.emit(Events.PRODUCT_REMOVE, product);
+      } else {
+        emitter.emit(Events.PRODUCT_ADD, product)}
+      }
+    });
+
+    card.updateButton(isInBasket, () => {
+      if (isInBasket) {
+        emitter.emit(Events.PRODUCT_REMOVE, product);
+      } else {
+        emitter.emit(Events.PRODUCT_ADD, product);
+      }
+    });
+  if (!product.price || product.price <= 0) {
+    card.setDisabled(card.button, true);
+  }
   modal.render({
     content: card.render({
       title: product.title,
@@ -88,23 +127,26 @@ emitter.on('preview:changed', (product: Product) => {
 
 // При добавлении товара в корзину, сохранить их в заказ и корзину
 
-emitter.on('product:add', (product: Product) => {
-  basketData.addToIdInTotalSum(product);
-  orderData.addToOrder(product);
-  basketData.setProductToBusket(product);
-  page.counter = basketData.basketValue.length;
-  modal.close();
+emitter.on(Events.PRODUCT_ADD, (product: Product) => {
+  if(!basketData.basketValue.some(item => item.id === product.id)) {
+    console.log(product.id);
+    basketData.addToIdInTotalSum(product);
+    orderData.addToOrder(product);
+    basketData.setProductToBasket(product);
+    page.counter = basketData.basketValue.length;
+    modal.close();
+  }
 })
 
 // При открытии корзины - показываем кнопку, сумму товаров, товары, добавляем контент в модальное окно
 
-emitter.on('basket:open', () => {
+emitter.on(Events.BASKET_OPEN, () => {
   basketView.setDisabled(basketView.button, basketData.statusBasket);
  
   let i = 1;
   basketView.items = basketData.basketValue.map((product) => {
     const card = new CardBasket(cloneTemplate(cardBasketTpl), {
-      onClick: () => emitter.emit('product:remove', product)
+      onClick: () => emitter.emit(Events.PRODUCT_REMOVE, product)
     });
     basketView.total = basketData.getTotal();
     return card.render({
@@ -120,9 +162,10 @@ emitter.on('basket:open', () => {
 
 // При удалении товара из корзины, удалить данные товара, из заказа. Обновить счетчик, обновить кнопку и сумму товаров.
 
-emitter.on('product:remove', (product: Product) => {
+emitter.on(Events.PRODUCT_REMOVE, (product: Product) => {
   basketData.removeProductForBasket(product);
   basketData.removeFromIdTotalSum(product);
+  orderData.removeFromOrder(product);
   page.counter = basketData.basketValue.length;
   basketView.setDisabled(basketView.button, basketData.statusBasket);
   basketView.total = basketData.getTotal();
@@ -130,7 +173,7 @@ emitter.on('product:remove', (product: Product) => {
   let i = 1;
   basketView.items = basketData.basketValue.map((product) => {
     const card = new CardBasket(cloneTemplate(cardBasketTpl), {
-      onClick: () => emitter.emit('product:remove', product)
+      onClick: () => emitter.emit(Events.PRODUCT_REMOVE, product)
     });
     basketView.total = basketData.getTotal();
     return card.render({
@@ -139,14 +182,17 @@ emitter.on('product:remove', (product: Product) => {
       index: i++
     })
   });
-  modal.render({
-    content: basketView.render()
-  })
+
+  modal.close();
+
+  // modal.render({
+  //   content: basketView.render()
+  // })
 })
 
 // При открытии окна заказа - открываем модальное окно с формой заказа
 
-emitter.on('order:open', () => {
+emitter.on(Events.ORDER_OPEN, () => {
   modal.render({
     content: orderView.render({
       address: '',
@@ -159,7 +205,7 @@ emitter.on('order:open', () => {
 
 // При отправки формы заказа, передаем данные и открываем модальное окно с формой контакты
 
-emitter.on('order:submit', () => {
+emitter.on(Events.ORDER_SUBMIT, () => {
   orderData.order.total = basketData.getTotal();
   modal.render({
       content: contactsView.render({
@@ -173,7 +219,8 @@ emitter.on('order:submit', () => {
 
 // При отправки формы контакты, передаем данные серверу и открываем модальное окно успешной отправки
 
-emitter.on('contacts:submit', () => {
+emitter.on(Events.CONTACTS_SUBMIT, () => {
+  console.log(orderData.order)
   api.orderProducts(orderData.order)
     .then(() => {
       const success = new Success(cloneTemplate(successTpl), {
@@ -197,7 +244,7 @@ emitter.on('contacts:submit', () => {
 
 // Изменение состояния валидации заказа
 
-emitter.on('formErrorsOrder:change', (errors: Partial<IOrder>) => {
+emitter.on(Events.FORM_ERRORS_ORDER_CHANGE, (errors: Partial<IOrder>) => {
   const { address, payment } = errors;
   orderView.valid = !address && !payment;
   orderView.errors = Object.values({address, payment}).filter(a=> !!a).join('; ');
@@ -205,7 +252,7 @@ emitter.on('formErrorsOrder:change', (errors: Partial<IOrder>) => {
 
 // Изменение состояния валидации контактов
 
-emitter.on('formErrorsContacts:change', (errors: Partial<IOrder>) => {
+emitter.on(Events.FORM_ERRORS_CONTACTS_CHANGE, (errors: Partial<IOrder>) => {
   const { email, phone} = errors;
   contactsView.valid = !email && !phone;
   contactsView.errors = Object.values({phone, email}).filter(a => !!a).join('; ');
@@ -213,7 +260,7 @@ emitter.on('formErrorsContacts:change', (errors: Partial<IOrder>) => {
 
 // При выборе способа оплаты - сохраняем данные
 
-emitter.on('payment:change', (item: HTMLButtonElement) => {
+emitter.on(Events.PAYMENT_CHANGE, (item: HTMLButtonElement) => {
   orderData.order.payment = item.name;
 })
 
@@ -235,13 +282,13 @@ emitter.on(/^contacts\..*:change/, (data: { field: keyof IOrder, value: string }
 
 // Блокировка прокрутки страницы при открытии модального окна
 
-emitter.on('modal:open', () => {
+emitter.on(Events.MODAL_OPEN, () => {
   page.locked = true;
 });
 
 // Разблокирование прокрутки страницы при закрытии модального окна
 
-emitter.on('modal:close', () => {
+emitter.on(Events.MODAL_CLOSE, () => {
   page.locked = false;
 });
 
